@@ -84,14 +84,14 @@
                     </div>
 
                     <!-- Debug Info -->
-                    @if(config('app.debug'))
+                    {{-- @if(config('app.debug'))
                         <div class="mt-4 p-3 bg-dark-700 rounded text-xs font-mono">
                             <p class="text-gray-500">Debug Info:</p>
                             <p class="text-yellow-400">env('TAX_RATE'): {{ var_export(env('TAX_RATE'), true) }}</p>
                             <p class="text-green-400">config('shop.tax_rate'): {{ config('shop.tax_rate') }}</p>
                             <p class="text-purple-400">Used rate: {{ $taxRate }}</p>
                         </div>
-                    @endif
+                    @endif --}}
 
                     <form action="{{ route('checkout.store') }}" method="POST" class="mt-6">
                         @csrf
