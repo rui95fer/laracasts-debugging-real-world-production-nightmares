@@ -19,7 +19,7 @@ return [
     | Default tax rate applied to all orders.
     | Stored as decimal (0.08 = 8%)
     */
-    // 'tax_rate' => env('TAX_RATE', 0.08),
+    'tax_rate' => env('TAX_RATE', 0.08),
 
     /*
     |--------------------------------------------------------------------------
