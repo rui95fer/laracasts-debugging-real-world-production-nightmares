@@ -21,14 +21,14 @@ class CheckoutController extends Controller
 
     /**
      * Show checkout page
-     * 
+     *
      * Episode 1 BUG: Direct env() usage instead of config()
      * This will break when config:cache is run!
      */
     public function index(CartService $cartService)
     {
         $cart = $cartService->getCart();
-        
+
         if (!$cart || $cart->items->isEmpty()) {
             return redirect()->route('cart.index')
                 ->with('error', 'Your cart is empty');
@@ -38,19 +38,19 @@ class CheckoutController extends Controller
         // EPISODE 1 BUG: Direct env() call!
         // This returns null after `php artisan config:cache`
         // ============================================
-        $taxRate = env('TAX_RATE');
-        
+        $taxRate = config('shop.tax_rate');
+
         // Debug logging to help demonstrate the issue
         Log::debug('CheckoutController: Tax rate from env()', [
             'tax_rate' => $taxRate,
             'env_function_result' => env('TAX_RATE'),
             'config_value' => config('shop.tax_rate'),
         ]);
-        
+
         $subtotal = $cart->getSubtotal();
-        
+
         // Episode 10 BUG: Float math for money
-        $tax = (int) round($subtotal * $taxRate);
+        $tax = (int)round($subtotal * $taxRate);
         $total = $subtotal + $tax;
 
         return view('checkout.index', [
@@ -64,14 +64,14 @@ class CheckoutController extends Controller
 
     /**
      * Process checkout
-     * 
+     *
      * Episode 4 BUG: Race condition in inventory check
      * No locking, no transaction for inventory updates
      */
     public function store(Request $request, CartService $cartService)
     {
         $cart = $cartService->getCart();
-        
+
         if (!$cart || $cart->items->isEmpty()) {
             return redirect()->route('cart.index')
                 ->with('error', 'Your cart is empty');
@@ -91,10 +91,10 @@ class CheckoutController extends Controller
         // ============================================
         foreach ($cart->items as $item) {
             $product = Product::find($item->product_id);
-            
+
             // BUG: Non-atomic check
             if ($product->stock_quantity < $item->quantity) {
-                return back()->with('error', 
+                return back()->with('error',
                     "Sorry, {$product->name} only has {$product->stock_quantity} in stock."
                 );
             }
@@ -103,10 +103,10 @@ class CheckoutController extends Controller
         // ============================================
         // EPISODE 1 BUG: Direct env() usage
         // ============================================
-        $taxRate = env('TAX_RATE');
-        
+        $taxRate = config('shop.tax_rate');
+
         $subtotal = $cart->getSubtotal();
-        $tax = (int) round($subtotal * $taxRate);
+        $tax = (int)round($subtotal * $taxRate);
         $total = $subtotal + $tax;
 
         // Create the order
@@ -123,7 +123,7 @@ class CheckoutController extends Controller
         // Create order items and update inventory
         foreach ($cart->items as $item) {
             $product = Product::find($item->product_id);
-            
+
             OrderItem::create([
                 'order_id' => $order->id,
                 'product_id' => $product->id,

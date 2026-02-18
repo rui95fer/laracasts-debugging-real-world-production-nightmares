@@ -2,10 +2,10 @@
 
 /**
  * Shop Configuration
- * 
+ *
  * Episode 1 Learning: ALWAYS access environment variables through config files
  * Using env() directly in controllers/models will break when config:cache runs
- * 
+ *
  * CORRECT: config('shop.tax_rate')
  * WRONG: env('TAX_RATE')
  */
@@ -19,7 +19,7 @@ return [
     | Default tax rate applied to all orders.
     | Stored as decimal (0.08 = 8%)
     */
-    // 'tax_rate' => env('TAX_RATE', 0.08),
+    'tax_rate' => env('TAX_RATE', 0.08),
 
     /*
     |--------------------------------------------------------------------------
@@ -52,10 +52,10 @@ return [
     'inventory' => [
         // Enable pessimistic locking for checkout
         'use_locking' => true,
-        
+
         // Allow backorders (negative stock)
         'allow_backorder' => false,
-        
+
         // Low stock threshold for notifications
         'low_stock_threshold' => 10,
     ],
