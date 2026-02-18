@@ -38,7 +38,7 @@ class CheckoutController extends Controller
         // EPISODE 1 BUG: Direct env() call!
         // This returns null after `php artisan config:cache`
         // ============================================
-        $taxRate = config('shop.tax_rate');
+        $taxRate = env('TAX_RATE');
         
         // Debug logging to help demonstrate the issue
         Log::debug('CheckoutController: Tax rate from env()', [
@@ -103,7 +103,7 @@ class CheckoutController extends Controller
         // ============================================
         // EPISODE 1 BUG: Direct env() usage
         // ============================================
-        $taxRate = config('shop.tax_rate');
+        $taxRate = env('TAX_RATE');
         
         $subtotal = $cart->getSubtotal();
         $tax = (int) round($subtotal * $taxRate);
