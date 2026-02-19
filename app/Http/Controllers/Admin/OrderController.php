@@ -17,15 +17,15 @@ class OrderController extends Controller
 
     /**
      * Display all orders
-     * 
+     *
      * ============================================
      * EPISODE 2 BUG: N+1 Query Problem!
      * ============================================
-     * 
+     *
      * This loads orders without eager loading relationships.
      * When the view accesses $order->user, $order->items, etc.,
      * it triggers N+1 queries!
-     * 
+     *
      * With 5,000 orders, this can generate 20,000+ queries
      * and take 30+ seconds to load.
      */
@@ -37,12 +37,10 @@ class OrderController extends Controller
             'page' => $request->get('page', 1),
         ]);
 
-        // ============================================
-        // EPISODE 2 BUG: No eager loading!
-        // ============================================
-        $orders = Order::latest('placed_at')
+        $orders = Order::with(['user', 'items.product.category',])
+            ->latest('placed_at')
             ->paginate(50);
-        
+
         // When the view loops through $orders and accesses:
         // - $order->user->name     → N+1 queries
         // - $order->items          → N+1 queries
@@ -59,12 +57,8 @@ class OrderController extends Controller
      */
     public function show(Order $order)
     {
-        // ============================================
-        // EPISODE 2: Even single order has N+1 potential
-        // ============================================
-        // We don't eager load here, so accessing items in view
-        // will trigger additional queries
-        
+        $order->load(['user', 'items.product.category',]);
+
         return view('admin.orders.show', [
             'order' => $order,
         ]);
@@ -96,7 +90,7 @@ class OrderController extends Controller
 
     /**
      * Export orders to CSV
-     * 
+     *
      * Episode 6: This could trigger memory issues with large datasets
      */
     public function export(Request $request)
@@ -113,7 +107,7 @@ class OrderController extends Controller
 
     /**
      * Dashboard with order statistics
-     * 
+     *
      * Episode 7 BUG: Timezone issues in date filtering
      */
     public function dashboard(Request $request)
@@ -121,7 +115,7 @@ class OrderController extends Controller
         // ============================================
         // EPISODE 7 BUG: Timezone-naive date filtering
         // ============================================
-        
+
         // BUG: Using today() without considering user timezone
         $today = now()->startOfDay();
         $thisWeek = now()->startOfWeek();
