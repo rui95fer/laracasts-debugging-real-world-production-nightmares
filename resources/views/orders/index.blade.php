@@ -9,7 +9,7 @@
                 <span class="text-6xl mb-4 block">📋</span>
                 <h3 class="text-lg font-medium mb-2">No orders yet</h3>
                 <p class="text-gray-500 mb-6">You haven't placed any orders yet.</p>
-                <a href="{{ route('products.index') }}" 
+                <a href="{{ route('products.index') }}"
                    class="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition">
                     Start Shopping
                 </a>
@@ -65,22 +65,23 @@
                             </div>
 
                             <div class="mt-4 flex items-center justify-between pt-4 border-t border-dark-700">
-                                <a href="{{ route('orders.show', $order) }}" 
+                                <a href="{{ route('orders.show', $order) }}"
                                    class="text-purple-400 hover:text-purple-300 text-sm transition">
                                     View Details →
                                 </a>
-                                
-                                {{-- Episode 3 BUG: Refund button visible to all users! --}}
-                                @if($order->canBeRefunded())
-                                    <form action="{{ route('orders.refund', $order) }}" method="POST" 
-                                          onsubmit="return confirm('Are you sure you want to refund this order?')">
-                                        @csrf
-                                        <button type="submit" 
-                                                class="text-red-400 hover:text-red-300 text-sm transition">
-                                            Request Refund
-                                        </button>
-                                    </form>
-                                @endif
+
+                                @can('refund', $order)
+                                    @if($order->canBeRefunded())
+                                        <form action="{{ route('orders.refund', $order) }}" method="POST"
+                                              onsubmit="return confirm('Are you sure you want to refund this order?')">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="text-red-400 hover:text-red-300 text-sm transition">
+                                                Request Refund
+                                            </button>
+                                        </form>
+                                    @endif
+                                @endcan
                             </div>
                         </div>
                     </div>
@@ -92,13 +93,6 @@
                 {{ $orders->links() }}
             </div>
 
-            <!-- Episode 3 Bug Notice -->
-            <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-4 mt-6 text-sm">
-                <p class="text-yellow-300">
-                    <strong>🐛 Episode 3:</strong> The refund button is visible to all users, and the 
-                    route doesn't check if you're an admin!
-                </p>
-            </div>
         @endif
     </div>
 </x-app-layout>

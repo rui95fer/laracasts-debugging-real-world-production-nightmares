@@ -63,11 +63,7 @@ class OrderController extends Controller
      */
     public function refund(Order $order)
     {
-        // ============================================
-        // BUG: Missing authorization check!
-        // Should have: $this->authorize('refund', $order);
-        // Or at minimum: if (!Auth::user()->isAdmin()) abort(403);
-        // ============================================
+        $this->authorize('refund', $order);
 
         // Episode 8 BUG: Logging sensitive action without proper context
         Log::info("Processing refund", [

@@ -64,38 +64,30 @@ Route::middleware('auth')->prefix('orders')->name('orders.')->group(function () 
     Route::get('/', [OrderController::class, 'index'])->name('index');
     Route::get('/{order}', [OrderController::class, 'show'])->name('show');
     Route::post('/{order}/receipt', [OrderController::class, 'downloadReceipt'])->name('receipt');
-    
-    // ============================================
-    // EPISODE 3 BUG: Missing admin middleware!
-    // ============================================
-    // This route should have ->middleware('admin') but doesn't!
-    // Any authenticated user can refund any order!
-    Route::post('/{order}/refund', [OrderController::class, 'refund'])->name('refund');
-    
-    // CORRECT would be:
-    // Route::post('/{order}/refund', [OrderController::class, 'refund'])
-    //     ->middleware('admin')
-    //     ->name('refund');
+
+    Route::post('/{order}/refund', [OrderController::class, 'refund'])
+        ->middleware('admin')
+        ->name('refund');
 });
 
 // Admin Routes
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     // Dashboard
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
-    
+
     // Orders (Episode 2: N+1 queries)
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
     Route::post('/orders/export', [AdminOrderController::class, 'export'])->name('orders.export');
-    
+
     // Admin order search (Episode 9)
     Route::get('/orders/search', [SearchController::class, 'adminOrderSearch'])->name('orders.search');
-    
+
     // Products
     Route::resource('products', AdminProductController::class)->except(['show']);
     Route::post('/products/{id}/restore', [AdminProductController::class, 'restore'])->name('products.restore');
-    
+
     // Users
     Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
     Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
@@ -107,11 +99,11 @@ if (app()->environment('local')) {
     Route::get('/debug/queries', function () {
         return view('debug.queries');
     })->name('debug.queries');
-    
+
     Route::get('/debug/cache', function () {
         return view('debug.cache');
     })->name('debug.cache');
-    
+
     Route::get('/debug/memory', function () {
         return response()->json([
             'memory_usage' => memory_get_usage(true),

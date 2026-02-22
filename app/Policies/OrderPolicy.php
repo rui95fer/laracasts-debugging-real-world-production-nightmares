@@ -67,13 +67,7 @@ class OrderPolicy
      */
     public function refund(User $user, Order $order): bool
     {
-        // Only admins can process refunds
-        if (!$user->isAdmin()) {
-            return false;
-        }
-
-        // Can only refund orders that aren't already refunded
-        return $order->canBeRefunded();
+        return $user->isAdmin() && $order->canBeRefunded();
     }
 
     /**

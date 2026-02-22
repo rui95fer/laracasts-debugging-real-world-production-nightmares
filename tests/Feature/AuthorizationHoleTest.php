@@ -9,22 +9,21 @@ use Tests\TestCase;
 
 /**
  * Episode 3: The Authorization Hole Nobody Noticed
- * 
- * These tests demonstrate the authorization bug - regular users
- * can refund orders because the route lacks middleware.
+ *
+ * These tests protect refund authorization behavior.
  */
 class AuthorizationHoleTest extends TestCase
 {
     use RefreshDatabase;
 
     /**
-     * BUG: Regular user CAN refund orders (should fail!)
+     * Regular users cannot refund orders.
      */
-    public function test_regular_user_can_refund_order_bug(): void
+    public function test_regular_user_cannot_refund_order(): void
     {
         // Create a regular user (not admin)
         $user = User::factory()->create(['is_admin' => false]);
-        
+
         // Create an order for a different user
         $otherUser = User::factory()->create();
         $order = Order::factory()->create([
@@ -36,28 +35,24 @@ class AuthorizationHoleTest extends TestCase
         $response = $this->actingAs($user)
             ->post(route('orders.refund', $order));
 
-        // BUG: This succeeds when it shouldn't!
-        // The route is missing ->middleware('admin')
-        $response->assertRedirect(); // Succeeds instead of 403
-        
-        // Verify the order was refunded (BUG!)
-        $this->assertEquals('refunded', $order->fresh()->status);
+        $response->assertForbidden();
+        $this->assertEquals('completed', $order->fresh()->status);
     }
 
     /**
-     * What SHOULD happen: Regular user gets 403 Forbidden
+     * Regular users cannot refund even their own orders.
      */
-    public function test_regular_user_should_not_refund_order(): void
+    public function test_regular_user_cannot_refund_own_order(): void
     {
-        $this->markTestSkipped('This test shows expected behavior after fix');
-
         $user = User::factory()->create(['is_admin' => false]);
-        $order = Order::factory()->create(['status' => 'completed']);
+        $order = Order::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completed',
+        ]);
 
         $response = $this->actingAs($user)
             ->post(route('orders.refund', $order));
 
-        // After fixing, this should be the result
         $response->assertForbidden();
         $this->assertEquals('completed', $order->fresh()->status);
     }
