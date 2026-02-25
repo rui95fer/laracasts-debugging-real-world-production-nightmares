@@ -134,21 +134,12 @@ class CartService
 
     /**
      * Get cart total with caching
-     * 
-     * ============================================
-     * EPISODE 5 BUG: Cache Key Not Scoped to User!
-     * ============================================
-     * 
-     * This caches the cart total with a global key 'cart_total'
-     * When User A views their cart, it caches THEIR total
-     * When User B views their cart, they see User A's cached total!
      */
     public function getCartTotal(): int
     {
-        // ============================================
-        // BUG: Global cache key - not scoped to user!
-        // ============================================
-        return Cache::remember('cart_total', 3600, function () {
+        $userId = Auth::id() ?? 'guest_' . session()->getId();
+
+        return Cache::remember("cart_total_{$userId}", 3600, function () {
             $cart = $this->getCart();
             
             // Episode 8 BUG: Logging cart access
@@ -160,29 +151,17 @@ class CartService
             return $cart->getSubtotal();
         });
 
-        // ============================================
-        // CORRECT implementation would be:
-        // 
-        // $userId = Auth::id() ?? 'guest_' . session()->getId();
-        // return Cache::remember("cart_total_{$userId}", 3600, function () {
-        //     return $this->getCart()->getSubtotal();
-        // });
-        // ============================================
     }
 
     /**
      * Clear cart cache
-     * 
-     * Episode 5: This also has the bug - clears global key
      */
     protected function clearCartCache(): void
     {
-        // BUG: Only clears global key, not user-specific
+        $userId = Auth::id() ?? 'guest_' . session()->getId();
+
+        Cache::forget("cart_total_{$userId}");
         Cache::forget('cart_total');
-        
-        // CORRECT would be:
-        // $userId = Auth::id() ?? 'guest_' . session()->getId();
-        // Cache::forget("cart_total_{$userId}");
     }
 
     /**
