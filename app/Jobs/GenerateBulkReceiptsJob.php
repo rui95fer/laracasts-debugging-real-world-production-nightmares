@@ -28,58 +28,41 @@ class GenerateBulkReceiptsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * Execute the job.
-     * 
-     * BUG: This will crash with memory exhaustion!
+     * Execute the job using a memory-safe iteration strategy.
      */
     public function handle(): void
     {
         $startMemory = memory_get_usage(true);
+        $processed = 0;
+        $chunkSize = 100;
+
         Log::info("Starting bulk receipt generation", [
             'memory_start' => $this->formatBytes($startMemory),
+            'chunk_size' => $chunkSize,
         ]);
 
-        // ============================================
-        // BUG 1: Loading ALL orders into memory at once
-        // With 5,000+ orders, this alone can use 100MB+
-        // ============================================
-        $orders = Order::with('items.product', 'user')->get();
-
-        Log::info("Loaded orders", [
-            'count' => $orders->count(),
-            'memory_after_load' => $this->formatBytes(memory_get_usage(true)),
-        ]);
-
-        foreach ($orders as $order) {
-            // ============================================
-            // BUG 2: PDF generation creates memory pressure
-            // Each iteration adds memory that isn't released
-            // ============================================
+        Order::query()
+            ->with('items.product', 'user')
+            ->lazyById($chunkSize)
+            ->each(function (Order $order) use (&$processed): void {
             $content = $this->generateReceiptContent($order);
 
-            // ============================================
-            // BUG 3: Storing content in variable keeps it in memory
-            // ============================================
             $filename = "receipts/receipt-{$order->order_number}.html";
             Storage::put($filename, $content);
+            unset($content);
 
-            // ============================================
-            // BUG 4: Logging in loop adds memory pressure
-            // ============================================
-            Log::debug("Generated receipt", [
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'memory' => $this->formatBytes(memory_get_usage(true)),
-            ]);
+            $processed++;
 
-            // ============================================
-            // BUG 5: $order object never explicitly released
-            // PHP's GC can't keep up with the allocation rate
-            // ============================================
-        }
+            if ($processed % 100 === 0) {
+                Log::info('Bulk receipt progress', [
+                    'processed' => $processed,
+                    'memory' => $this->formatBytes(memory_get_usage(true)),
+                ]);
+            }
+        });
 
-        // This line is often never reached due to memory crash
         Log::info("Bulk receipt generation complete", [
+            'processed' => $processed,
             'memory_end' => $this->formatBytes(memory_get_usage(true)),
             'memory_peak' => $this->formatBytes(memory_get_peak_usage(true)),
         ]);
