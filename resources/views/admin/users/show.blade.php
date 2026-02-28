@@ -86,7 +86,7 @@
                                 </div>
                                 <div class="text-right">
                                     <p class="font-bold text-green-400">{{ $order->formatted_total }}</p>
-                                    <p class="text-xs text-gray-500">{{ $order->placed_at->format('M j, Y') }}</p>
+                                    <p class="text-xs text-gray-500">{{ $order->placed_at->timezone(auth()->user()->timezone)->format('M j, Y') }}</p>
                                 </div>
                                 <a href="{{ route('admin.orders.show', $order) }}" 
                                    class="text-purple-400 hover:text-purple-300 text-sm">

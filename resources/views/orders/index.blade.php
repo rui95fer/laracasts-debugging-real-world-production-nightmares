@@ -26,8 +26,7 @@
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Placed</p>
-                                {{-- Episode 7 BUG: Not converting to user timezone! --}}
-                                <p>{{ $order->placed_at->format('M j, Y g:i A') }}</p>
+                                <p>{{ $order->placed_at->timezone(auth()->user()->timezone)->format('M j, Y g:i A') }}</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500">Total</p>

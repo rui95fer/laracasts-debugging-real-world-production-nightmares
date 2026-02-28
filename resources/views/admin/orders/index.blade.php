@@ -75,10 +75,9 @@
                             </span>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-400">
-                            {{-- Episode 7 BUG: UTC time, not user timezone --}}
-                            {{ $order->placed_at->format('M j, Y') }}
+                            {{ $order->placed_at->timezone(auth()->user()->timezone)->format('M j, Y') }}
                             <br>
-                            <span class="text-xs">{{ $order->placed_at->format('g:i A') }}</span>
+                            <span class="text-xs">{{ $order->placed_at->timezone(auth()->user()->timezone)->format('g:i A') }}</span>
                         </td>
                         <td class="px-4 py-3 text-right">
                             <a href="{{ route('admin.orders.show', $order) }}" 

@@ -110,9 +110,8 @@
                         <dd>{{ $order->id }}</dd>
                     </div>
                     <div>
-                        <dt class="text-gray-500">Placed At (UTC)</dt>
-                        {{-- Episode 7: Shows UTC --}}
-                        <dd>{{ $order->placed_at->format('F j, Y g:i A') }}</dd>
+                        <dt class="text-gray-500">Placed At ({{ auth()->user()->timezone }})</dt>
+                        <dd>{{ $order->placed_at->timezone(auth()->user()->timezone)->format('F j, Y g:i A') }}</dd>
                     </div>
                     <div>
                         <dt class="text-gray-500">Created</dt>

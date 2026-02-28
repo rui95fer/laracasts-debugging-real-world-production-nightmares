@@ -82,9 +82,8 @@
                     <dl class="space-y-3 text-sm">
                         <div>
                             <dt class="text-gray-500">Order Date</dt>
-                            {{-- Episode 7 BUG: Shows UTC, not user timezone --}}
-                            <dd>{{ $order->placed_at->format('F j, Y \a\t g:i A') }}</dd>
-                            <dd class="text-xs text-gray-600">(UTC)</dd>
+                            <dd>{{ $order->placed_at->timezone(auth()->user()->timezone)->format('F j, Y \a\t g:i A') }}</dd>
+                            <dd class="text-xs text-gray-600">({{ auth()->user()->timezone }})</dd>
                         </div>
                         <div>
                             <dt class="text-gray-500">Customer</dt>
@@ -127,8 +126,8 @@
                 <!-- Bug Notice -->
                 <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-4 text-sm">
                     <p class="text-yellow-300">
-                        <strong>🐛 Episode 7:</strong> Dates shown in UTC, not your timezone
-                        ({{ auth()->user()->timezone }})!
+                        <strong>Episode 7:</strong> Dates shown in your timezone
+                        ({{ auth()->user()->timezone }}).
                     </p>
                 </div>
             </div>
