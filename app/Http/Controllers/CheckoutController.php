@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Services\CartService;
+use App\Services\OrderCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,7 @@ class CheckoutController extends Controller
      * Episode 1 BUG: Direct env() usage instead of config()
      * This will break when config:cache is run!
      */
-    public function index(CartService $cartService)
+    public function index(CartService $cartService, OrderCalculator $orderCalculator)
     {
         $cart = $cartService->getCart();
 
@@ -39,7 +40,7 @@ class CheckoutController extends Controller
         // EPISODE 1 BUG: Direct env() call!
         // This returns null after `php artisan config:cache`
         // ============================================
-        $taxRate = config('shop.tax_rate');
+        $taxRate = (float) config('shop.tax_rate', 0.08);
 
         // Debug logging to help demonstrate the issue
         Log::debug('CheckoutController: Tax rate from env()', [
@@ -48,17 +49,16 @@ class CheckoutController extends Controller
             'config_value' => config('shop.tax_rate'),
         ]);
 
-        $subtotal = $cart->getSubtotal();
-
-        // Episode 10 BUG: Float math for money
-        $tax = (int)round($subtotal * $taxRate);
-        $total = $subtotal + $tax;
+        $totals = $orderCalculator->calculateMoney(
+            $this->buildCalculationItems($cart),
+            $taxRate,
+        );
 
         return view('checkout.index', [
             'cart' => $cart,
-            'subtotal' => $subtotal,
-            'tax' => $tax,
-            'total' => $total,
+            'subtotal' => $totals['subtotal']->getCents(),
+            'tax' => $totals['tax']->getCents(),
+            'total' => $totals['total']->getCents(),
             'taxRate' => $taxRate,
         ]);
     }
@@ -69,7 +69,7 @@ class CheckoutController extends Controller
      * Episode 4 BUG: Race condition in inventory check
      * No locking, no transaction for inventory updates
      */
-    public function store(Request $request, CartService $cartService)
+    public function store(Request $request, CartService $cartService, OrderCalculator $orderCalculator)
     {
         $cart = $cartService->getCart();
 
@@ -80,13 +80,13 @@ class CheckoutController extends Controller
 
         // Episode 8 BUG: Excessive logging with sensitive data
         Log::debug('Processing checkout', [
-            'user' => Auth::user()->toArray(), // BUG: Logging entire user object
+            'user_id' => Auth::id(),
             'cart_items' => $cart->items->toArray(),
             'request' => $request->all(), // BUG: Could include sensitive data
         ]);
 
         try {
-            $order = DB::transaction(function () use ($cart) {
+            $order = DB::transaction(function () use ($cart, $orderCalculator) {
                 $productIds = $cart->items->pluck('product_id')->all();
 
                 $products = Product::query()
@@ -111,19 +111,20 @@ class CheckoutController extends Controller
                 // ============================================
                 // EPISODE 1 BUG: Direct env() usage
                 // ============================================
-                $taxRate = config('shop.tax_rate');
+                $taxRate = (float) config('shop.tax_rate', 0.08);
 
-                $subtotal = $cart->getSubtotal();
-                $tax = (int)round($subtotal * $taxRate);
-                $total = $subtotal + $tax;
+                $totals = $orderCalculator->calculateMoney(
+                    $this->buildCalculationItems($cart),
+                    $taxRate,
+                );
 
                 // Create the order
                 $order = Order::create([
                     'user_id' => Auth::id(),
                     'order_number' => Order::generateOrderNumber(),
-                    'subtotal' => $subtotal,
-                    'tax' => $tax,
-                    'total' => $total,
+                    'subtotal' => $totals['subtotal']->getCents(),
+                    'tax' => $totals['tax']->getCents(),
+                    'total' => $totals['total']->getCents(),
                     'status' => Order::STATUS_PENDING,
                     'placed_at' => now(),
                 ]);
@@ -163,10 +164,24 @@ class CheckoutController extends Controller
         // Episode 8 BUG: More excessive logging
         Log::info('Order completed', [
             'order' => $order->toArray(),
-            'user' => Auth::user()->toArray(),
+            'user_id' => Auth::id(),
         ]);
 
         return redirect()->route('orders.show', $order)
             ->with('success', 'Order placed successfully!');
+    }
+
+    /**
+     * Build line items payload for order calculations.
+     *
+     * @return array<int, array{product_id:int, price:int, quantity:int}>
+     */
+    private function buildCalculationItems(Cart $cart): array
+    {
+        return $cart->items->map(fn ($item) => [
+            'product_id' => (int) $item->product_id,
+            'price' => (int) $item->price_at_time,
+            'quantity' => (int) $item->quantity,
+        ])->values()->all();
     }
 }

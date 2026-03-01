@@ -4,13 +4,14 @@ use App\Exceptions\InsufficientStockException;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Services\OrderCalculator;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:120,1')->group(function () {
-    Route::post('/test-checkout', function (Request $request) {
+    Route::post('/test-checkout', function (Request $request, OrderCalculator $orderCalculator) {
         abort_unless(app()->environment(['local', 'testing']), 404);
 
         $request->validate([
@@ -39,17 +40,21 @@ Route::middleware('throttle:120,1')->group(function () {
 
         usleep(random_int(10000, 50000));
 
-        $taxRate = config('shop.tax_rate', 0.08);
-        $subtotal = $product->price * $quantity;
-        $tax = (int) round($subtotal * $taxRate);
-        $total = $subtotal + $tax;
+        $taxRate = (float) config('shop.tax_rate', 0.08);
+        $totals = $orderCalculator->calculateMoney([
+            [
+                'product_id' => $product->id,
+                'price' => (int) $product->price,
+                'quantity' => $quantity,
+            ],
+        ], $taxRate);
 
         $order = Order::create([
             'user_id' => $user->id,
             'order_number' => Order::generateOrderNumber(),
-            'subtotal' => $subtotal,
-            'tax' => $tax,
-            'total' => $total,
+            'subtotal' => $totals['subtotal']->getCents(),
+            'tax' => $totals['tax']->getCents(),
+            'total' => $totals['total']->getCents(),
             'status' => Order::STATUS_PENDING,
             'placed_at' => now(),
         ]);
@@ -59,7 +64,7 @@ Route::middleware('throttle:120,1')->group(function () {
             'product_id' => $product->id,
             'quantity' => $quantity,
             'price' => $product->price,
-            'subtotal' => $subtotal,
+            'subtotal' => $totals['subtotal']->getCents(),
         ]);
 
         $product->stock_quantity -= $quantity;
@@ -71,7 +76,7 @@ Route::middleware('throttle:120,1')->group(function () {
         ]);
     });
 
-    Route::post('/test-checkout-fixed', function (Request $request) {
+    Route::post('/test-checkout-fixed', function (Request $request, OrderCalculator $orderCalculator) {
         abort_unless(app()->environment(['local', 'testing']), 404);
 
         $request->validate([
@@ -92,7 +97,7 @@ Route::middleware('throttle:120,1')->group(function () {
         }
 
         try {
-            $order = DB::transaction(function () use ($user, $productId, $quantity) {
+            $order = DB::transaction(function () use ($user, $productId, $quantity, $orderCalculator) {
                 $product = Product::where('id', $productId)
                     ->lockForUpdate()
                     ->first();
@@ -111,16 +116,21 @@ Route::middleware('throttle:120,1')->group(function () {
 
                 usleep(random_int(10000, 50000));
 
-                $taxRate = config('shop.tax_rate', 0.08);
-                $subtotal = $product->price * $quantity;
-                $tax = (int) round($subtotal * $taxRate);
+                $taxRate = (float) config('shop.tax_rate', 0.08);
+                $totals = $orderCalculator->calculateMoney([
+                    [
+                        'product_id' => $product->id,
+                        'price' => (int) $product->price,
+                        'quantity' => $quantity,
+                    ],
+                ], $taxRate);
 
                 $order = Order::create([
                     'user_id' => $user->id,
                     'order_number' => Order::generateOrderNumber(),
-                    'subtotal' => $subtotal,
-                    'tax' => $tax,
-                    'total' => $subtotal + $tax,
+                    'subtotal' => $totals['subtotal']->getCents(),
+                    'tax' => $totals['tax']->getCents(),
+                    'total' => $totals['total']->getCents(),
                     'status' => Order::STATUS_PENDING,
                     'placed_at' => now(),
                 ]);
@@ -130,7 +140,7 @@ Route::middleware('throttle:120,1')->group(function () {
                     'product_id' => $product->id,
                     'quantity' => $quantity,
                     'price' => $product->price,
-                    'subtotal' => $subtotal,
+                    'subtotal' => $totals['subtotal']->getCents(),
                 ]);
 
                 $product->decrement('stock_quantity', $quantity);

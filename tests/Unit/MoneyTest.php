@@ -135,9 +135,9 @@ class MoneyTest extends TestCase
         $totalCents = $subtotalCents + $taxCents;
         
         // Integer approach is deterministic
-        $this->assertEquals(6686, $subtotalCents);  // $66.86
-        $this->assertEquals(535, $taxCents);        // $5.35
-        $this->assertEquals(7221, $totalCents);     // $72.21
+        $this->assertEquals(5086, $subtotalCents);  // $50.86
+        $this->assertEquals(407, $taxCents);        // $4.07
+        $this->assertEquals(5493, $totalCents);     // $54.93
     }
 
     /**

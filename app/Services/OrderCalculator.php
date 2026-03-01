@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\ValueObjects\Money;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -60,6 +61,31 @@ class OrderCalculator
     }
 
     /**
+     * Calculate order totals as Money value objects.
+     *
+     * @return array{subtotal: Money, tax: Money, total: Money}
+     */
+    public function calculateMoney(array $items, float $taxRate = 0.08): array
+    {
+        $subtotal = Money::zero();
+
+        foreach ($items as $item) {
+            $price = Money::fromCents((int) $item['price']);
+            $lineTotal = $price->multiply((int) $item['quantity']);
+            $subtotal = $subtotal->add($lineTotal);
+        }
+
+        $tax = $subtotal->percentage($taxRate);
+        $total = $subtotal->add($tax);
+
+        return [
+            'subtotal' => $subtotal,
+            'tax' => $tax,
+            'total' => $total,
+        ];
+    }
+
+    /**
      * Calculate order totals - CORRECT VERSION
      * 
      * This version works entirely in cents (integers)
@@ -67,25 +93,12 @@ class OrderCalculator
      */
     public function calculate(array $items, float $taxRate = 0.08): array
     {
-        // Work in cents throughout
-        $subtotalCents = 0;
-
-        foreach ($items as $item) {
-            // Integer math - no floating point issues
-            $itemTotal = $item['price'] * $item['quantity']; // Both in cents
-            $subtotalCents += $itemTotal;
-        }
-
-        // Calculate tax in cents with single round
-        // (subtotal * rate) with rounding
-        $taxCents = (int) round($subtotalCents * $taxRate);
-        
-        $totalCents = $subtotalCents + $taxCents;
+        $totals = $this->calculateMoney($items, $taxRate);
 
         return [
-            'subtotal' => $subtotalCents,
-            'tax' => $taxCents,
-            'total' => $totalCents,
+            'subtotal' => $totals['subtotal']->getCents(),
+            'tax' => $totals['tax']->getCents(),
+            'total' => $totals['total']->getCents(),
         ];
     }
 
@@ -106,7 +119,7 @@ class OrderCalculator
 
         $taxRate = config('shop.tax_rate', 0.08);
         
-        $calculated = $this->calculate($items, $taxRate);
+        $calculated = $this->calculateMoney($items, $taxRate);
         $calculatedBuggy = $this->calculateBuggy($items, $taxRate);
 
         return [
@@ -115,11 +128,15 @@ class OrderCalculator
                 'tax' => $order->tax,
                 'total' => $order->total,
             ],
-            'calculated_correct' => $calculated,
+            'calculated_correct' => [
+                'subtotal' => $calculated['subtotal']->getCents(),
+                'tax' => $calculated['tax']->getCents(),
+                'total' => $calculated['total']->getCents(),
+            ],
             'calculated_buggy' => $calculatedBuggy,
-            'matches_correct' => $order->total === $calculated['total'],
+            'matches_correct' => $order->total === $calculated['total']->getCents(),
             'matches_buggy' => $order->total === $calculatedBuggy['total'],
-            'discrepancy' => $order->total - $calculated['total'],
+            'discrepancy' => $order->total - $calculated['total']->getCents(),
         ];
     }
 }
