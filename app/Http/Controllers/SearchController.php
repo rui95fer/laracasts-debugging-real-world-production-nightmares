@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SearchController extends Controller
@@ -19,7 +20,7 @@ class SearchController extends Controller
      */
     public function index(Request $request)
     {
-        $query = $request->input('q', '');
+        $query = trim((string) $request->input('q', ''));
 
         if (empty($query)) {
             return view('search.index', [
@@ -31,7 +32,7 @@ class SearchController extends Controller
         // Episode 8 BUG: Logging every search query
         Log::info("Search performed", [
             'query' => $query,
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(), // BUG: Logging user agent
         ]);
@@ -40,15 +41,35 @@ class SearchController extends Controller
         // EPISODE 9 BUG: Performance Nightmare!
         // ============================================
         
-        // BUG 1: LIKE with wildcards on BOTH sides - can't use index!
-        // This does a full table scan on every search
-        $products = Product::where('name', 'LIKE', "%{$query}%")
-            // BUG 2: Also searching description with double wildcard
-            ->orWhere('description', 'LIKE', "%{$query}%")
-            // BUG 3: Eager loading explosion - loads ALL related data
+        $minLength = max(1, (int) config('shop.search.min_length', 3));
+        $maxPerPage = max(1, (int) config('shop.search.max_results', 100));
+        $defaultPerPage = max(1, (int) config('shop.items_per_page', 20));
+        $perPage = max(1, min($request->integer('per_page', $defaultPerPage), $maxPerPage));
+
+        if (mb_strlen($query) < $minLength) {
+            return view('search.index', [
+                'products' => collect(),
+                'query' => $query,
+            ]);
+        }
+
+        $productsQuery = Product::query()
             ->with('category')
-            // BUG 4: No limit! Could return 10,000+ products
-            ->get();
+            ->select(['id', 'category_id', 'name', 'slug', 'price', 'stock_quantity', 'image_path']);
+
+        $driver = DB::getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb', 'pgsql'], true)) {
+            $productsQuery->whereFullText(['name', 'description'], $query);
+        } else {
+            $productsQuery->where('name', 'LIKE', $query . '%')
+                ->orWhere('description', 'LIKE', '%' . $query . '%');
+        }
+
+        $products = $productsQuery
+            ->latest('id')
+            ->simplePaginate($perPage)
+            ->withQueryString();
 
         // Episode 8 BUG: Logging in response
         Log::debug("Search results", [

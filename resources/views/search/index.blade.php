@@ -35,7 +35,11 @@
             <h1 class="text-2xl font-bold mb-2">
                 Search results for "{{ $query }}"
             </h1>
-            <p class="text-gray-500 mb-8">{{ $products->count() }} products found</p>
+            @if($products instanceof \Illuminate\Contracts\Pagination\Paginator)
+                <p class="text-gray-500 mb-8">Showing {{ $products->count() }} products on this page</p>
+            @else
+                <p class="text-gray-500 mb-8">{{ $products->count() }} products found</p>
+            @endif
 
             @if($products->isEmpty())
                 <div class="bg-dark-800 border border-dark-700 rounded-lg p-12 text-center">
@@ -44,7 +48,6 @@
                     <p class="text-gray-500">Try searching for something else.</p>
                 </div>
             @else
-                {{-- BUG: No pagination, all results rendered at once! --}}
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     @foreach($products as $product)
                         <a href="{{ route('products.show', $product) }}" 
@@ -76,13 +79,9 @@
                     @endforeach
                 </div>
 
-                {{-- Note: No pagination because of bug --}}
-                @if($products->count() >= 100)
-                    <div class="bg-red-900/30 border border-red-700/50 rounded-lg p-4 mt-6 text-sm">
-                        <p class="text-red-300">
-                            <strong>⚠️ Performance Warning:</strong> Search returned {{ $products->count() }} results 
-                            without pagination. In production, this would be very slow!
-                        </p>
+                @if($products instanceof \Illuminate\Contracts\Pagination\Paginator)
+                    <div class="mt-8">
+                        {{ $products->links() }}
                     </div>
                 @endif
             @endif
